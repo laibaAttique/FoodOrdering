@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/food_item.dart';
+import '../providers/cart_provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/firestore_service.dart';
+import 'item_details_screen.dart';
 
 /// Home Screen
-/// Main dashboard showing food items organized in categories
-/// Users can browse items, search, and add to cart
+/// Main landing page after login showing food categories and items
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, this.userName}) : super(key: key);
-
-  // User's name passed from signup
   final String? userName;
+
+  const HomeScreen({Key? key, this.userName}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -16,17 +19,43 @@ class HomeScreen extends StatefulWidget {
 
 /// State class for HomeScreen
 class _HomeScreenState extends State<HomeScreen> {
-  // Store cart items count for badge
-  int _cartItemCount = 0;
+  final FirestoreService _firestoreService = FirestoreService();
   
-  // Store user name
-  late String _displayName;
+  String _selectedCategory = 'Most Liked';
+  List<FoodItem> _foodItems = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Use passed userName or default to "Guest"
-    _displayName = widget.userName ?? 'Guest';
+    _loadFoodItems();
+    _initializeCart();
+  }
+
+  Future<void> _initializeCart() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    
+    if (authProvider.userId != null) {
+      await cartProvider.setUserId(authProvider.userId);
+    }
+  }
+
+  Future<void> _loadFoodItems() async {
+    setState(() => _isLoading = true);
+    
+    // Load all items and filter by subCategory
+    final allItems = await _firestoreService.getAllFoodItems();
+    
+    if (_selectedCategory == 'Most Liked') {
+      _foodItems = allItems.where((item) => item.subCategory == 'Most Liked').toList();
+    } else if (_selectedCategory == 'Seasonal Offers') {
+      _foodItems = allItems.where((item) => item.isSeasonal || item.isPromotional).toList();
+    } else {
+      _foodItems = allItems.take(10).toList(); // Suggestions
+    }
+    
+    setState(() => _isLoading = false);
   }
 
   @override
@@ -57,40 +86,48 @@ class _HomeScreenState extends State<HomeScreen> {
           // Cart button with badge
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart, color: Colors.white),
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/cart');
-                  },
-                ),
-                // Cart badge
-                if (_cartItemCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$_cartItemCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+              // Cart icon with badge
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/cart');
+                    },
+                  ),
+                  // Cart badge
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, _) {
+                      if (cartProvider.itemCount == 0) return const SizedBox();
+                      
+                      return Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Text(
+                            '${cartProvider.itemCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
-              ],
-            ),
+                ],
+              ),
           ),
         ],
       ),
@@ -105,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Hi, $_displayName! 👋',
+                    'Hi, ${widget.userName ?? 'Guest'}! 👋',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -164,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Build a single food section
   /// Uses ListView.builder for dynamic item rendering
   Widget _buildFoodSection(String category) {
-    final items = getItemsByCategory(category);
+    final items = _foodItems.where((item) => item.subCategory == category).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -253,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Center(
               child: Text(
-                item.emoji,
+                item.imageUrl,
                 style: const TextStyle(fontSize: 50),
               ),
             ),
@@ -338,9 +375,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Handle adding item to cart
   void _addToCart(FoodItem item) {
-    setState(() {
-      _cartItemCount++;
-    });
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    cartProvider.addItem(item);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -350,4 +386,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  void _navigateToItemDetails(FoodItem item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ItemDetailsScreen(foodItem: item),
+      ),
+    );
+  }
+
+}
 }

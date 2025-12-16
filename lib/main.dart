@@ -10,6 +10,10 @@ import 'screens/home_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/menu_screen.dart';
+import 'screens/checkout_screen.dart';
+import 'screens/order_history_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/item_details_screen.dart';
 
 // Import providers
 import 'providers/auth_provider.dart';
@@ -158,9 +162,11 @@ class BitesBuzzApp extends StatelessWidget {
               '/search': (context) => const SearchScreen(),
               '/cart': (context) => const CartScreen(),
               '/menu': (context) => const MenuScreen(),
+              '/checkout': (context) => const CheckoutScreen(),
+              '/order-history': (context) => const OrderHistoryScreen(),
+              '/profile': (context) => const ProfileScreen(),
               // TODO: Add routes as screens are implemented
               // '/item-details': (context) => const ItemDetailsScreen(),
-              // '/checkout': (context) => const CheckoutScreen(),
               // '/order-tracking': (context) => const OrderTrackingScreen(),
               // '/profile': (context) => const ProfileScreen(),
             },

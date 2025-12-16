@@ -139,134 +139,13 @@ class FoodItem {
   }
 }
 
-/// Mock data for food items
-/// In a real app, this would come from an API
-final List<FoodItem> allFoodItems = [
-  // Most Liked items
-  FoodItem(
-    id: '1',
-    name: 'Margherita Pizza',
-    category: 'Most Liked',
-    price: 250,
-    emoji: '🍕',
-    rating: 4.8,
-    reviews: 245,
-  ),
-  FoodItem(
-    id: '2',
-    name: 'Cheese Burger',
-    category: 'Most Liked',
-    price: 180,
-    emoji: '🍔',
-    rating: 4.6,
-    reviews: 189,
-  ),
-  FoodItem(
-    id: '3',
-    name: 'Grilled Chicken',
-    category: 'Most Liked',
-    price: 220,
-    emoji: '🍗',
-    rating: 4.7,
-    reviews: 156,
-  ),
-  FoodItem(
-    id: '4',
-    name: 'Biryani Bowl',
-    category: 'Most Liked',
-    price: 280,
-    emoji: '🍚',
-    rating: 4.9,
-    reviews: 312,
-  ),
-
-  // Seasonal Offers
-  FoodItem(
-    id: '5',
-    name: 'Mango Lassi',
-    category: 'Seasonal Offers',
-    price: 80,
-    emoji: '🥭',
-    rating: 4.4,
-    reviews: 98,
-  ),
-  FoodItem(
-    id: '6',
-    name: 'Corn Salad',
-    category: 'Seasonal Offers',
-    price: 120,
-    emoji: '🌽',
-    rating: 4.3,
-    reviews: 76,
-  ),
-  FoodItem(
-    id: '7',
-    name: 'Iced Coffee',
-    category: 'Seasonal Offers',
-    price: 95,
-    emoji: '☕',
-    rating: 4.5,
-    reviews: 143,
-  ),
-  FoodItem(
-    id: '8',
-    name: 'Fresh Juice',
-    category: 'Seasonal Offers',
-    price: 70,
-    emoji: '🧃',
-    rating: 4.2,
-    reviews: 112,
-  ),
-
-  // Suggestions to Try
-  FoodItem(
-    id: '9',
-    name: 'Paneer Tikka',
-    category: 'Suggestions to Try',
-    price: 200,
-    emoji: '🍢',
-    rating: 4.4,
-    reviews: 89,
-  ),
-  FoodItem(
-    id: '10',
-    name: 'Tandoori Naan',
-    category: 'Suggestions to Try',
-    price: 60,
-    emoji: '🍞',
-    rating: 4.6,
-    reviews: 134,
-  ),
-  FoodItem(
-    id: '11',
-    name: 'Choco Brownie',
-    category: 'Suggestions to Try',
-    price: 120,
-    emoji: '🍫',
-    rating: 4.9,
-    reviews: 267,
-  ),
-  FoodItem(
-    id: '12',
-    name: 'Fruit Platter',
-    category: 'Suggestions to Try',
-    price: 150,
-    emoji: '🍎',
-    rating: 4.5,
-    reviews: 101,
-  ),
-];
-
 /// Get items by category
-List<FoodItem> getItemsByCategory(String category) {
-  return allFoodItems.where((item) => item.category == category).toList();
+List<FoodItem> getFoodItemsByCategory(String category) {
+  // This function is deprecated - use FirestoreService instead
+  return [];
 }
 
 /// Get all unique categories
 List<String> getAllCategories() {
-  final categories = <String>{};
-  for (var item in allFoodItems) {
-    categories.add(item.category);
-  }
-  return categories.toList();
+  return ['Most Liked', 'Seasonal Offers', 'Suggestions to Try'];
 }
