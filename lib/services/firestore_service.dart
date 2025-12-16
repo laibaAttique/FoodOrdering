@@ -70,12 +70,11 @@ class FirestoreService {
   /// Get all food items
   Future<List<FoodItem>> getAllFoodItems() async {
     try {
-      final snapshot = await _foodItemsCollection
-          .where('isAvailable', isEqualTo: true)
-          .get();
-      
+      final snapshot = await _foodItemsCollection.get();
+
       return snapshot.docs
           .map((doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>))
+          .where((item) => item.isAvailable)
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -88,13 +87,11 @@ class FirestoreService {
   /// Get food items by category
   Future<List<FoodItem>> getFoodItemsByCategory(String category) async {
     try {
-      final snapshot = await _foodItemsCollection
-          .where('category', isEqualTo: category)
-          .where('isAvailable', isEqualTo: true)
-          .get();
-      
+      final snapshot = await _foodItemsCollection.where('category', isEqualTo: category).get();
+
       return snapshot.docs
           .map((doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>))
+          .where((item) => item.isAvailable)
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -107,13 +104,11 @@ class FirestoreService {
   /// Get seasonal food items
   Future<List<FoodItem>> getSeasonalItems() async {
     try {
-      final snapshot = await _foodItemsCollection
-          .where('isSeasonal', isEqualTo: true)
-          .where('isAvailable', isEqualTo: true)
-          .get();
-      
+      final snapshot = await _foodItemsCollection.where('isSeasonal', isEqualTo: true).get();
+
       return snapshot.docs
           .map((doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>))
+          .where((item) => item.isAvailable)
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -126,13 +121,11 @@ class FirestoreService {
   /// Get promotional food items
   Future<List<FoodItem>> getPromotionalItems() async {
     try {
-      final snapshot = await _foodItemsCollection
-          .where('isPromotional', isEqualTo: true)
-          .where('isAvailable', isEqualTo: true)
-          .get();
-      
+      final snapshot = await _foodItemsCollection.where('isPromotional', isEqualTo: true).get();
+
       return snapshot.docs
           .map((doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>))
+          .where((item) => item.isAvailable)
           .toList();
     } catch (e) {
       if (kDebugMode) {
@@ -145,13 +138,12 @@ class FirestoreService {
   /// Search food items
   Future<List<FoodItem>> searchFoodItems(String query) async {
     try {
-      final snapshot = await _foodItemsCollection
-          .where('isAvailable', isEqualTo: true)
-          .get();
+      final snapshot = await _foodItemsCollection.get();
       
       final lowerQuery = query.toLowerCase();
       return snapshot.docs
           .map((doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>))
+          .where((item) => item.isAvailable)
           .where((item) =>
               item.name.toLowerCase().contains(lowerQuery) ||
               item.category.toLowerCase().contains(lowerQuery) ||

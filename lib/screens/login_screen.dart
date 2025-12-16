@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/order_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -29,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
       
       final success = await authProvider.signIn(
         email: _emailController.text.trim(),
@@ -38,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (success && mounted) {
         // Set user ID for cart provider
         await cartProvider.setUserId(authProvider.userId);
+        await orderProvider.setUserId(authProvider.userId);
         
         // Navigate to home screen
         Navigator.pushReplacementNamed(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/food_item.dart';
+import '../providers/cart_provider.dart';
 import '../services/firestore_service.dart';
 
 /// Search Screen
@@ -25,8 +27,25 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    _loadFoodItems();
     // Listen to search input changes for real-time filtering
     _searchController.addListener(_performSearch);
+  }
+
+  Future<void> _loadFoodItems() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      _allFoodItems = await _firestoreService.getAllFoodItems();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   /// Perform real-time search based on user input
@@ -113,7 +132,9 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           // Search results or empty state
           Expanded(
-            child: _buildSearchResults(),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildSearchResults(),
           ),
         ],
       ),
@@ -319,6 +340,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Handle adding item to cart
   void _addToCart(FoodItem item) {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    cartProvider.addItem(item);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${item.name} added to cart! 🍕'),

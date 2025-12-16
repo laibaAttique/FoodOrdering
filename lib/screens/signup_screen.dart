@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/order_provider.dart';
 
 /// Signup Screen
 /// This screen allows new users to create an account
@@ -76,6 +77,7 @@ class _SignupScreenState extends State<SignupScreen> {
       // Get providers
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
       // Sign up with Firebase
       final success = await authProvider.signUp(
@@ -88,6 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (success && mounted) {
         // Set user ID for cart provider
         await cartProvider.setUserId(authProvider.userId);
+        await orderProvider.setUserId(authProvider.userId);
 
         // Navigate to home screen
         Navigator.pushReplacementNamed(

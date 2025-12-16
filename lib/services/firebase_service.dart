@@ -25,6 +25,14 @@ class FirebaseService {
       return;
     }
 
+    if (Firebase.apps.isNotEmpty) {
+      _initialized = true;
+      if (kDebugMode) {
+        print('Firebase already initialized (existing app found)');
+      }
+      return;
+    }
+
     try {
       await Firebase.initializeApp();
       _initialized = true;

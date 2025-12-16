@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/foundation.dart';
 
 // Import screens
@@ -42,6 +43,8 @@ void main() async {
           measurementId: "G-CXFLXGGZC0",
         ),
       );
+
+      await fb_auth.FirebaseAuth.instance.setPersistence(fb_auth.Persistence.LOCAL);
     } else {
       await Firebase.initializeApp();
     }
@@ -67,9 +70,35 @@ class BitesBuzzApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => OrderProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, CartProvider>(
+          create: (_) => CartProvider(),
+          update: (_, authProvider, cartProvider) {
+            cartProvider ??= CartProvider();
+            cartProvider.setUserId(authProvider.userId);
+            return cartProvider;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, OrderProvider>(
+          create: (_) => OrderProvider(),
+          update: (_, authProvider, orderProvider) {
+            orderProvider ??= OrderProvider();
+            orderProvider.setUserId(authProvider.userId);
+            return orderProvider;
+          },
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, UserProvider>(
+          create: (_) => UserProvider(),
+          update: (_, authProvider, userProvider) {
+            userProvider ??= UserProvider();
+            final uid = authProvider.userId;
+            if (uid != null) {
+              userProvider.loadUserProfile(uid);
+            } else {
+              userProvider.clearUserData();
+            }
+            return userProvider;
+          },
+        ),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {

@@ -44,16 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadFoodItems() async {
     setState(() => _isLoading = true);
     
-    // Load all items and filter by subCategory
     final allItems = await _firestoreService.getAllFoodItems();
-    
-    if (_selectedCategory == 'Most Liked') {
-      _foodItems = allItems.where((item) => item.subCategory == 'Most Liked').toList();
-    } else if (_selectedCategory == 'Seasonal Offers') {
-      _foodItems = allItems.where((item) => item.isSeasonal || item.isPromotional).toList();
-    } else {
-      _foodItems = allItems.take(10).toList(); // Suggestions
-    }
+    _foodItems = allItems;
     
     setState(() => _isLoading = false);
   }
@@ -218,7 +210,23 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Build a single food section
   /// Uses ListView.builder for dynamic item rendering
   Widget _buildFoodSection(String category) {
-    final items = _foodItems.where((item) => item.subCategory == category).toList();
+    final items = _foodItems.where((item) {
+      if (category == 'Most Liked') {
+        return item.subCategory == 'Most Liked';
+      }
+
+      if (category == 'Seasonal Offers') {
+        return item.isSeasonal || item.isPromotional || item.subCategory == 'Seasonal';
+      }
+
+      if (category == 'Suggestions to Try') {
+        return item.subCategory == 'Suggestions' ||
+            item.subCategory == 'Suggestions to Try' ||
+            item.subCategory.isEmpty;
+      }
+
+      return false;
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),

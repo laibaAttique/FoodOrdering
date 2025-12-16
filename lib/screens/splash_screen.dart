@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
@@ -19,6 +20,8 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  bool _didNavigate = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +40,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Start the animation
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _redirectIfLoggedIn();
+    });
+  }
+
+  void _redirectIfLoggedIn() {
+    if (!mounted || _didNavigate) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isLoggedIn) {
+      _didNavigate = true;
+      Navigator.pushReplacementNamed(
+        context,
+        '/home',
+        arguments: authProvider.userProfile?.name ?? authProvider.user?.email,
+      );
+    }
   }
 
   @override
@@ -53,6 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
     
     if (authProvider.isLoggedIn) {
       // User is already logged in - go straight to Home
+      _didNavigate = true;
       Navigator.pushReplacementNamed(
         context, 
         '/home', 
@@ -60,6 +82,7 @@ class _SplashScreenState extends State<SplashScreen>
       );
     } else {
       // Not logged in - go to Login
+      _didNavigate = true;
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
