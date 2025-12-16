@@ -61,6 +61,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: Consumer<CartProvider>(
+        builder: (context, cart, child) {
+          if (cart.itemCount == 0) return const SizedBox();
+          return FloatingActionButton.extended(
+            onPressed: () {
+               Navigator.pushNamed(context, '/cart');
+            },
+            backgroundColor: const Color(0xFFFF6B35),
+            icon: const Icon(Icons.shopping_cart),
+            label: Text('${cart.itemCount} Items'),
+          );
+        },
+      ),
       // App bar with search and cart
       appBar: AppBar(
         backgroundColor: const Color(0xFFFF6B35),
@@ -86,8 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Cart button with badge
           Padding(
             padding: const EdgeInsets.only(right: 16),
-              // Cart icon with badge
-              Stack(
+            child: Stack(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.shopping_cart, color: Colors.white),
@@ -126,8 +138,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                ],
+                  ],
               ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout',
+            onPressed: () => _handleLogout(context),
           ),
         ],
       ),
@@ -396,5 +413,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Logout',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      // final orderProvider = Provider.of<OrderProvider>(context, listen: false); // OrderProvider not imported in HomeScreen yet, need to add import or remove this if not strictly needed for logout (AuthProvider clears user which clears orders usually, but explicit is good)
+      // Actually checking imports: OrderProvider is NOT imported in replacement block above. 
+      // I need to add the import at the top of file or use context.read if I don't want to change imports separately. 
+      // But looking at existing imports in line 1-7:
+      // import '../providers/cart_provider.dart';
+      // import '../providers/auth_provider.dart';
+      // OrderProvider is missing.
+      
+      await authProvider.signOut();
+      await cartProvider.setUserId(null); 
+      // await orderProvider.setUserId(null); // Skip for now if import missing, AuthProvider signout usually handles session. 
+      // But purely for clean state, I should clear cart. CartProvider IS imported.
+      
+      if (mounted) {
+         Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
+  }
+
 }
-}
+

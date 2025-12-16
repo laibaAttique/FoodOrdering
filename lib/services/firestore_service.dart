@@ -233,7 +233,7 @@ class FirestoreService {
       if (kDebugMode) {
         print('Error creating order: $e');
       }
-      throw 'Failed to create order';
+      throw 'Failed to create order: $e';
     }
   }
 

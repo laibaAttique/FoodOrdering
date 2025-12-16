@@ -56,7 +56,7 @@ class OrderProvider with ChangeNotifier {
   }
 
   /// Create new order
-  Future<String?> createOrder({
+  Future<String> createOrder({
     required List<CartItem> items,
     required double subtotal,
     required double deliveryFee,
@@ -66,7 +66,9 @@ class OrderProvider with ChangeNotifier {
     String? deliveryInstructions,
     double discount = 0,
   }) async {
-    if (_userId == null) return null;
+    if (_userId == null) {
+      throw 'User not logged in';
+    }
 
     try {
       _isLoading = true;
@@ -103,7 +105,7 @@ class OrderProvider with ChangeNotifier {
       }
       _isLoading = false;
       notifyListeners();
-      return null;
+      rethrow; // Rethrow to let UI handle it
     }
   }
 

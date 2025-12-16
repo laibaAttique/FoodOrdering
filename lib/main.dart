@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
 // Import screens
 import 'screens/splash_screen.dart';
@@ -20,18 +21,35 @@ import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/user_provider.dart';
-
+import 'utils/food_data_seeder.dart';
 // Import services
 import 'services/firebase_service.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
+
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
   try {
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyC7tGmk5omgEoiRYRgu5MuUjfY_rR6D_04",
+          authDomain: "foodordering-app-ef349.firebaseapp.com",
+          projectId: "foodordering-app-ef349",
+          storageBucket: "foodordering-app-ef349.firebasestorage.app",
+          messagingSenderId: "428401096180",
+          appId: "1:428401096180:web:b40659ad51e7e4190a75a1",
+          measurementId: "G-CXFLXGGZC0",
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     await FirebaseService.instance.initialize();
+    
+    // 🔥 SEED DATA - Run ONCE, then comment out
+    // await FoodDataSeeder().seedFoodItems();
+    
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }

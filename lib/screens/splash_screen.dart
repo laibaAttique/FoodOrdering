@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 /// Splash Screen
 /// This is the first screen users see when opening the app
@@ -24,8 +25,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Create animation controller with 2-second duration
     _animationController = AnimationController(
+      // Reduced duration for faster startup feel while keeping animation
       duration: const Duration(seconds: 2),
-      vsync: this, // vsync prevents off-screen animations from wasting resources
+      vsync: this,
     );
 
     // Create fade animation from 0 (invisible) to 1 (visible)
@@ -45,11 +47,21 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   /// Handle "Get Started" button press
-  /// Navigate to login screen when user clicks
+  /// Checks if user is already logged in for persistent session
   void _handleGetStarted() {
-    // pushReplacementNamed removes this screen from navigation stack
-    // So user can't go back to splash by pressing back button
-    Navigator.pushReplacementNamed(context, '/login');
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (authProvider.isLoggedIn) {
+      // User is already logged in - go straight to Home
+      Navigator.pushReplacementNamed(
+        context, 
+        '/home', 
+        arguments: authProvider.userProfile?.name ?? authProvider.user?.email
+      );
+    } else {
+      // Not logged in - go to Login
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override

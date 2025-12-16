@@ -353,7 +353,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : null,
       );
 
-      if (orderId != null && mounted) {
+      if (mounted) {
         // Clear cart
         await cartProvider.clearCart();
 
@@ -368,15 +368,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             duration: Duration(seconds: 3),
           ),
         );
-      } else {
-        throw Exception('Failed to create order');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error placing order: $e'),
+            content: Text('Error placing order: $e\nType: ${e.runtimeType}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Details',
+              textColor: Colors.white,
+              onPressed: () {
+                // Optional: show dialog with full error
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Error Details'),
+                    content: SingleChildScrollView(child: Text(e.toString())),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
       }
