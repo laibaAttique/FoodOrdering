@@ -52,6 +52,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final displayName = authProvider.userProfile?.name ??
+        authProvider.user?.displayName ??
+        authProvider.user?.email ??
+        widget.userName ??
+        'Guest';
+
     return Scaffold(
       floatingActionButton: Consumer<CartProvider>(
         builder: (context, cart, child) {
@@ -151,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Hi, ${widget.userName ?? 'Guest'}! 👋',
+                    'Hi, $displayName! 👋',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
