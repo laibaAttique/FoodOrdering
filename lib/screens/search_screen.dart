@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/food_item.dart';
+import '../services/firestore_service.dart';
 
 /// Search Screen
 /// Allows users to search for food items dynamically
@@ -13,13 +14,12 @@ class SearchScreen extends StatefulWidget {
 
 /// State class for SearchScreen - handles search logic
 class _SearchScreenState extends State<SearchScreen> {
-  // Search controller to capture user input
-  final _searchController = TextEditingController();
-
-  // List to store search results
+  final FirestoreService _firestoreService = FirestoreService();
+  final TextEditingController _searchController = TextEditingController();
+  
   List<FoodItem> _searchResults = [];
-
-  // Track if user has performed a search
+  List<FoodItem> _allFoodItems = [];
+  bool _isLoading = false;
   bool _hasSearched = false;
 
   @override
@@ -43,7 +43,7 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     // Filter food items by name or category
-    final results = allFoodItems.where((item) {
+    final results = _allFoodItems.where((item) {
       return item.name.toLowerCase().contains(query) ||
           item.category.toLowerCase().contains(query);
     }).toList();
@@ -230,7 +230,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: Center(
                 child: Text(
-                  item.emoji,
+                  item.imageUrl,
                   style: const TextStyle(fontSize: 40),
                 ),
               ),

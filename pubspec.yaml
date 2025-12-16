@@ -53,7 +53,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  
-  # Asset configuration for Figma design images
-  assets:
-    - assets/figma/
