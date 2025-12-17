@@ -111,12 +111,13 @@ Respond in this exact JSON format only, no other text:
   }
 
   /// Get AI-powered suggestions based on order history
+  /// Shows personalized suggestions after user's first order
   Future<AISuggestionResult> getHistoryBasedSuggestions(String userId) async {
     try {
       final orderHistory = await _firestoreService.getUserOrderHistory(userId, limit: 10);
       final allItems = await _firestoreService.getAllFoodItems();
       
-      if (orderHistory.isEmpty) {
+      if (orderHistory.isEmpty || allItems.isEmpty) {
         // New user with no order history - return empty suggestions
         // The regular menu sections will show instead
         return AISuggestionResult(
@@ -232,33 +233,72 @@ Respond in this exact JSON format only:
     }
   }
 
-  /// Local fallback for cart-based suggestions
+  /// Local fallback for cart-based suggestions - SMART pairing logic
   AISuggestionResult _getLocalCartSuggestions(List<CartItem> cartItems, List<FoodItem> availableItems) {
     final cartCategories = cartItems.map((c) => c.foodItem.category).toSet();
+    final cartNames = cartItems.map((c) => c.foodItem.name.toLowerCase()).toSet();
     final cartTags = cartItems.expand((c) => c.foodItem.tags).toSet();
     
-    // Score items based on complementary logic
+    // Check what's in cart for smart suggestions
+    final hasBurger = cartNames.any((n) => n.contains('burger') || n.contains('zinger'));
+    final hasPizza = cartNames.any((n) => n.contains('pizza'));
+    final hasBiryani = cartNames.any((n) => n.contains('biryani') || n.contains('rice'));
+    final hasNoodles = cartNames.any((n) => n.contains('noodle') || n.contains('chow'));
+    final hasFries = cartNames.any((n) => n.contains('fries') || n.contains('loaded'));
+    final hasDrink = cartCategories.contains('Beverages') || cartNames.any((n) => 
+      n.contains('drink') || n.contains('cola') || n.contains('shake') || 
+      n.contains('juice') || n.contains('lassi') || n.contains('chai') || n.contains('coffee'));
+    
+    // Score items based on SMART complementary logic
     final scored = <FoodItem, double>{};
     for (final item in availableItems) {
       double score = 0;
+      final itemName = item.name.toLowerCase();
+      final isFries = itemName.contains('fries') || itemName.contains('loaded');
+      final isDrink = item.category == 'Beverages' || itemName.contains('drink') || 
+          itemName.contains('shake') || itemName.contains('juice') || itemName.contains('lassi');
+      final isSide = itemName.contains('spring') || itemName.contains('nugget') || 
+          itemName.contains('wings') || itemName.contains('roll');
       
-      // Complementary category bonus
-      if (cartCategories.contains('Fast Food') && item.category == 'Beverages') {
-        score += 3;
-      }
-      if (cartCategories.contains('Desi Food') && item.category == 'Beverages') {
-        score += 2;
-      }
-      if (!cartCategories.contains(item.category)) {
-        score += 1; // Variety bonus
+      // BURGER LOGIC: Suggest fries, cold drinks, sides
+      if (hasBurger) {
+        if (isFries && !hasFries) score += 10; // Fries go great with burgers
+        if (isDrink && !hasDrink) score += 8;  // Need a drink with burger
+        if (isSide) score += 5; // Sides complement burgers
       }
       
-      // Tag matching
-      final commonTags = item.tags.where((t) => cartTags.contains(t)).length;
-      score += commonTags * 0.5;
+      // PIZZA LOGIC: Suggest drinks, garlic bread, wings
+      if (hasPizza) {
+        if (isDrink && !hasDrink) score += 8;
+        if (isSide) score += 6;
+        if (isFries && !hasFries) score += 4;
+      }
+      
+      // BIRYANI/DESI FOOD LOGIC: Suggest raita, lassi, salad
+      if (hasBiryani) {
+        if (itemName.contains('lassi') || itemName.contains('raita')) score += 10;
+        if (isDrink && !hasDrink) score += 6;
+      }
+      
+      // NOODLES LOGIC: Suggest spring rolls, drinks
+      if (hasNoodles) {
+        if (itemName.contains('spring') || itemName.contains('roll')) score += 8;
+        if (isDrink && !hasDrink) score += 6;
+      }
+      
+      // General: Always suggest drinks if none in cart
+      if (!hasDrink && isDrink) score += 5;
+      
+      // General: Fries are always a good suggestion for fast food
+      if (cartCategories.contains('Fast Food') && isFries && !hasFries) score += 7;
       
       // Rating bonus
-      score += item.rating / 5;
+      score += item.rating / 2;
+      
+      // Avoid suggesting same category if already have many
+      if (cartCategories.contains(item.category) && cartCategories.length == 1) {
+        score -= 2; // Encourage variety
+      }
       
       scored[item] = score;
     }
@@ -268,11 +308,22 @@ Respond in this exact JSON format only:
     
     final suggestions = sorted.take(4).map((e) => e.key).toList();
     
-    String message = "Complete your meal with these great additions!";
-    if (cartCategories.contains('Fast Food')) {
-      message = "Perfect pairs for your order! Don't forget a drink!";
-    } else if (cartCategories.contains('Desi Food')) {
-      message = "Add a refreshing beverage to complement your meal!";
+    // Smart message based on what's in cart
+    String message;
+    if (hasBurger && !hasFries && !hasDrink) {
+      message = "🍟 Complete your burger meal with fries and a cold drink!";
+    } else if (hasBurger && !hasFries) {
+      message = "🍟 Your burger needs some crispy fries!";
+    } else if (hasBurger && !hasDrink) {
+      message = "🥤 Don't forget a refreshing drink with your burger!";
+    } else if (hasPizza) {
+      message = "🍕 Perfect sides to go with your pizza!";
+    } else if (hasBiryani) {
+      message = "🍚 Complete your desi meal with these!";
+    } else if (!hasDrink) {
+      message = "🥤 Add a drink to complete your order!";
+    } else {
+      message = "✨ You might also like these!";
     }
     
     return AISuggestionResult(

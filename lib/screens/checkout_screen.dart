@@ -357,15 +357,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Clear cart
         await cartProvider.clearCart();
 
-        // Show success and navigate
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        Navigator.pushReplacementNamed(context, '/home');
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order placed successfully! 🎉'),
-            backgroundColor: Color(0xFF4CAF50),
-            duration: Duration(seconds: 3),
+        // Show success dialog with Track Order option
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Text('🎉', style: TextStyle(fontSize: 32)),
+                SizedBox(width: 12),
+                Text('Order Placed!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Your order has been placed successfully.'),
+                const SizedBox(height: 8),
+                Text(
+                  'Order #${orderId.substring(0, 8)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFFF6B35),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.pushReplacementNamed(context, '/home');
+                },
+                child: const Text('Go Home'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.pushReplacementNamed(context, '/home');
+                  Navigator.pushNamed(context, '/order-tracking', arguments: orderId);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                ),
+                child: const Text('Track Order', style: TextStyle(color: Colors.white)),
+              ),
+            ],
           ),
         );
       }
