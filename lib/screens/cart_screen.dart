@@ -2,11 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/ai_suggestion_service.dart';
+import '../widgets/ai_suggestions_widget.dart';
 
 /// Cart Screen
 /// Displays shopping cart with item management
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  final AISuggestionService _aiService = AISuggestionService();
+  AISuggestionResult? _aiSuggestions;
+  bool _isLoadingAI = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Delay AI loading to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAISuggestions();
+    });
+  }
+
+  Future<void> _loadAISuggestions() async {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    if (cartProvider.items.isEmpty) return;
+    
+    if (mounted) setState(() => _isLoadingAI = true);
+    try {
+      final result = await _aiService.getCartBasedSuggestions(cartProvider.items);
+      if (mounted) {
+        setState(() {
+          _aiSuggestions = result;
+          _isLoadingAI = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingAI = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +74,55 @@ class CartScreen extends StatelessWidget {
 
           return Column(
             children: [
-              // Cart items list
+              // Cart items list with AI suggestions
               Expanded(
-                child: ListView.builder(
+                child: ListView(
                   padding: const EdgeInsets.all(16),
-                  itemCount: cartProvider.items.length,
-                  itemBuilder: (context, index) {
-                    final cartItem = cartProvider.items[index];
-                    return _buildCartItem(context, cartItem, cartProvider);
-                  },
+                  children: [
+                    // Cart items
+                    ...cartProvider.items.map((cartItem) => 
+                      _buildCartItem(context, cartItem, cartProvider)
+                    ),
+                    
+                    // AI Suggestions Section
+                    if (_isLoadingAI)
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF6B35).withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFFF6B35).withOpacity(0.2),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'AI is finding suggestions...',
+                              style: TextStyle(color: Color(0xFF666666), fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_aiSuggestions != null && _aiSuggestions!.suggestions.isNotEmpty)
+                      AISuggestionsWidget(
+                        suggestions: _aiSuggestions!.suggestions,
+                        message: _aiSuggestions!.aiMessage,
+                        isAIPowered: _aiSuggestions!.isAIPowered,
+                        onRefresh: _loadAISuggestions,
+                      ),
+                  ],
                 ),
               ),
 

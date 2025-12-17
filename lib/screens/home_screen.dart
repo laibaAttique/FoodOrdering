@@ -4,6 +4,8 @@ import '../models/food_item.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
+import '../services/ai_suggestion_service.dart';
+import '../widgets/ai_suggestions_widget.dart';
 import 'item_details_screen.dart';
 
 /// Home Screen
@@ -20,16 +22,43 @@ class HomeScreen extends StatefulWidget {
 /// State class for HomeScreen
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  final AISuggestionService _aiService = AISuggestionService();
   
   String _selectedCategory = 'Most Liked';
   List<FoodItem> _foodItems = [];
   bool _isLoading = true;
+  
+  // AI Suggestions state
+  AISuggestionResult? _aiSuggestions;
+  bool _isLoadingAI = false;
 
   @override
   void initState() {
     super.initState();
     _loadFoodItems();
     _initializeCart();
+    // Delay AI loading to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAISuggestions();
+    });
+  }
+
+  Future<void> _loadAISuggestions() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.userId == null) return;
+    
+    if (mounted) setState(() => _isLoadingAI = true);
+    try {
+      final result = await _aiService.getHistoryBasedSuggestions(authProvider.userId!);
+      if (mounted) {
+        setState(() {
+          _aiSuggestions = result;
+          _isLoadingAI = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingAI = false);
+    }
   }
 
   Future<void> _initializeCart() async {
@@ -197,11 +226,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            // AI Personalized Suggestions Section
+            _buildAISuggestionsSection(),
+            
             // Food items sections - dynamically built using ListView.builder
             ..._buildFoodSections(),
           ],
         ),
       ),
+    );
+  }
+
+  /// Build AI suggestions section
+  /// Only shows for users with order history or popular items for new users
+  Widget _buildAISuggestionsSection() {
+    // Don't show loading state - wait until we have results
+    if (_isLoadingAI) {
+      return const SizedBox.shrink();
+    }
+
+    // Don't show if no suggestions available (new user with no data)
+    if (_aiSuggestions == null || _aiSuggestions!.suggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return AISuggestionsWidget(
+      suggestions: _aiSuggestions!.suggestions,
+      message: _aiSuggestions!.aiMessage,
+      isAIPowered: _aiSuggestions!.isAIPowered,
+      onRefresh: _loadAISuggestions,
     );
   }
 

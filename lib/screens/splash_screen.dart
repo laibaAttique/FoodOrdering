@@ -21,6 +21,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
 
   bool _didNavigate = false;
+  bool _isCheckingAuth = true;
 
   @override
   void initState() {
@@ -41,15 +42,24 @@ class _SplashScreenState extends State<SplashScreen>
     // Start the animation
     _animationController.forward();
 
+    // Auto-redirect after a short delay to check auth state
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _redirectIfLoggedIn();
+      _checkAuthAndRedirect();
     });
   }
 
-  void _redirectIfLoggedIn() {
+  /// Check auth state and auto-redirect if logged in
+  Future<void> _checkAuthAndRedirect() async {
+    if (!mounted || _didNavigate) return;
+
+    // Wait for animation to complete partially
+    await Future.delayed(const Duration(milliseconds: 1500));
+    
     if (!mounted || _didNavigate) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // If user is logged in, auto-redirect to home
     if (authProvider.isLoggedIn) {
       _didNavigate = true;
       Navigator.pushReplacementNamed(
@@ -57,6 +67,11 @@ class _SplashScreenState extends State<SplashScreen>
         '/home',
         arguments: authProvider.userProfile?.name ?? authProvider.user?.email,
       );
+    } else {
+      // Not logged in - show button
+      if (mounted) {
+        setState(() => _isCheckingAuth = false);
+      }
     }
   }
 
@@ -160,31 +175,42 @@ class _SplashScreenState extends State<SplashScreen>
             ),
             const SizedBox(height: 80),
 
-            // "Get Started" button at the bottom
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: SizedBox(
+            // "Get Started" button - only show when not checking auth
+            if (_isCheckingAuth)
+              const SizedBox(
                 width: 200,
                 height: 56,
-                child: ElevatedButton(
-                  onPressed: _handleGetStarted,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFFFF6B35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                ),
+              )
+            else
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: SizedBox(
+                  width: 200,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _handleGetStarted,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFFFF6B35),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Get Started',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
