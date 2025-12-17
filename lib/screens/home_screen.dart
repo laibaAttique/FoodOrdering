@@ -4,7 +4,7 @@ import '../models/food_item.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
-import '../services/ai_suggestion_service.dart';
+import '../services/huggingface_ai_service.dart';
 import '../widgets/ai_suggestions_widget.dart';
 import 'item_details_screen.dart';
 
@@ -22,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 /// State class for HomeScreen
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final AISuggestionService _aiService = AISuggestionService();
+  final HuggingFaceAIService _aiService = HuggingFaceAIService();
   
   String _selectedCategory = 'Most Liked';
   List<FoodItem> _foodItems = [];
@@ -45,11 +45,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadAISuggestions() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.userId == null) return;
+    if (authProvider.userId == null) {
+      print('🏠 AI Suggestions: No userId, skipping');
+      return;
+    }
     
+    print('🏠 AI Suggestions: Loading for user ${authProvider.userId}');
     if (mounted) setState(() => _isLoadingAI = true);
     try {
       final result = await _aiService.getHistoryBasedSuggestions(authProvider.userId!);
+      print('🏠 AI Suggestions: Got ${result.suggestions.length} suggestions');
+      print('🏠 AI Suggestions: Message: ${result.aiMessage}');
+      print('🏠 AI Suggestions: isAIPowered: ${result.isAIPowered}');
+      if (result.suggestions.isNotEmpty) {
+        print('🏠 AI Suggestions: First suggestion: ${result.suggestions.first.name}');
+      }
       if (mounted) {
         setState(() {
           _aiSuggestions = result;
@@ -57,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
+      print('🏠 AI Suggestions Error: $e');
       if (mounted) setState(() => _isLoadingAI = false);
     }
   }
@@ -314,16 +325,41 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Build AI suggestions section
   /// Only shows for users with order history or popular items for new users
   Widget _buildAISuggestionsSection() {
-    // Don't show loading state - wait until we have results
+    print('🏠 Building AI section: loading=$_isLoadingAI, suggestions=${_aiSuggestions?.suggestions.length ?? 0}');
+    
+    // Show loading indicator while fetching
     if (_isLoadingAI) {
-      return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF6B35).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Loading AI suggestions...'),
+            ],
+          ),
+        ),
+      );
     }
 
     // Don't show if no suggestions available (new user with no data)
     if (_aiSuggestions == null || _aiSuggestions!.suggestions.isEmpty) {
+      print('🏠 AI section: No suggestions to show');
       return const SizedBox.shrink();
     }
 
+    print('🏠 AI section: Showing ${_aiSuggestions!.suggestions.length} suggestions');
     return AISuggestionsWidget(
       suggestions: _aiSuggestions!.suggestions,
       message: _aiSuggestions!.aiMessage,

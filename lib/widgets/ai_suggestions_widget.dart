@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/food_item.dart';
 import '../providers/cart_provider.dart';
-import '../services/ai_suggestion_service.dart';
+import '../services/huggingface_ai_service.dart';
 
 /// AI Suggestions Widget
 /// Displays AI-powered food recommendations with a modern UI

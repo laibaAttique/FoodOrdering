@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/ai_suggestion_service.dart';
+import '../services/huggingface_ai_service.dart';
 import '../widgets/ai_suggestions_widget.dart';
 
 /// Cart Screen
@@ -15,7 +15,7 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final AISuggestionService _aiService = AISuggestionService();
+  final HuggingFaceAIService _aiService = HuggingFaceAIService();
   AISuggestionResult? _aiSuggestions;
   bool _isLoadingAI = false;
 

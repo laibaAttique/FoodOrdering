@@ -375,17 +375,26 @@ class FirestoreService {
   // ==================== ANALYTICS ====================
 
   /// Get user order history for recommendations
+  /// Includes all orders (not just delivered) for AI suggestions
   Future<List<OrderModel>> getUserOrderHistory(String userId, {int limit = 10}) async {
     try {
+      // Get ALL orders for the user (not just delivered) for AI suggestions
       final snapshot = await _ordersCollection
           .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: OrderStatus.delivered.toString())
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .get();
       
+      if (kDebugMode) {
+        print('getUserOrderHistory: Found ${snapshot.docs.length} orders for user $userId');
+      }
+      
       return snapshot.docs
-          .map((doc) => OrderModel.fromMap(doc.data() as Map<String, dynamic>))
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return OrderModel.fromMap(data);
+          })
           .toList();
     } catch (e) {
       if (kDebugMode) {

@@ -10,10 +10,13 @@ import 'firestore_service.dart';
 /// Uses Google Gemini API to provide intelligent food recommendations
 /// based on user's order history and current cart items
 class AISuggestionService {
-  static const String _baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  // Using Gemini 2.5 Flash model for fast, accurate suggestions
+  static const String _baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
   
-  // TODO: Replace with your own API key from https://makersuite.google.com/app/apikey
-  static const String _apiKey = 'gen-lang-client-0039529357';
+  // ⚠️ IMPORTANT: Replace this with your actual Gemini API key
+  // Get your FREE API key from: https://aistudio.google.com/app/apikey
+  // The local smart suggestions will work without an API key
+  static const String _apiKey = 'YOUR_GEMINI_API_KEY_HERE';
   
   final FirestoreService _firestoreService = FirestoreService();
 
@@ -114,12 +117,28 @@ Respond in this exact JSON format only, no other text:
   /// Shows personalized suggestions after user's first order
   Future<AISuggestionResult> getHistoryBasedSuggestions(String userId) async {
     try {
+      if (kDebugMode) {
+        print('=== AI HISTORY SUGGESTIONS DEBUG ===');
+        print('Getting order history for user: $userId');
+      }
+      
       final orderHistory = await _firestoreService.getUserOrderHistory(userId, limit: 10);
       final allItems = await _firestoreService.getAllFoodItems();
+      
+      if (kDebugMode) {
+        print('Order history count: ${orderHistory.length}');
+        print('All items count: ${allItems.length}');
+        if (orderHistory.isNotEmpty) {
+          print('First order items: ${orderHistory.first.items.map((i) => i.foodItem.name).toList()}');
+        }
+      }
       
       if (orderHistory.isEmpty || allItems.isEmpty) {
         // New user with no order history - return empty suggestions
         // The regular menu sections will show instead
+        if (kDebugMode) {
+          print('No order history or no items - returning empty suggestions');
+        }
         return AISuggestionResult(
           suggestions: [],
           aiMessage: "",
@@ -194,9 +213,21 @@ Respond in this exact JSON format only:
     }
   }
 
-  /// Call Gemini API
+  /// Call Gemini API with proper error handling
   Future<String?> _callGeminiAPI(String prompt) async {
+    // Skip API call if using placeholder key - use local suggestions instead
+    if (_apiKey.contains('YOUR_') || _apiKey.contains('Demo') || _apiKey.contains('Replace') || _apiKey.length < 20) {
+      if (kDebugMode) {
+        print('Gemini API: Using local suggestions (no valid API key configured)');
+      }
+      return null;
+    }
+    
     try {
+      if (kDebugMode) {
+        print('Gemini API: Calling with prompt length ${prompt.length}');
+      }
+      
       final response = await http.post(
         Uri.parse('$_baseUrl?key=$_apiKey'),
         headers: {'Content-Type': 'application/json'},
@@ -213,11 +244,14 @@ Respond in this exact JSON format only:
             'maxOutputTokens': 500,
           }
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        if (kDebugMode) {
+          print('Gemini API: Success - got response');
+        }
         return text as String?;
       } else {
         if (kDebugMode) {
@@ -236,69 +270,104 @@ Respond in this exact JSON format only:
   /// Local fallback for cart-based suggestions - SMART pairing logic
   AISuggestionResult _getLocalCartSuggestions(List<CartItem> cartItems, List<FoodItem> availableItems) {
     final cartCategories = cartItems.map((c) => c.foodItem.category).toSet();
-    final cartNames = cartItems.map((c) => c.foodItem.name.toLowerCase()).toSet();
+    final cartNames = cartItems.map((c) => c.foodItem.name.toLowerCase()).toList();
     final cartTags = cartItems.expand((c) => c.foodItem.tags).toSet();
     
-    // Check what's in cart for smart suggestions
+    if (kDebugMode) {
+      print('=== AI CART SUGGESTIONS DEBUG ===');
+      print('Cart items: $cartNames');
+      print('Cart categories: $cartCategories');
+      print('Available items count: ${availableItems.length}');
+    }
+    
+    // Detect food types in cart - check BOTH name AND category
     final hasBurger = cartNames.any((n) => n.contains('burger') || n.contains('zinger'));
     final hasPizza = cartNames.any((n) => n.contains('pizza'));
-    final hasBiryani = cartNames.any((n) => n.contains('biryani') || n.contains('rice'));
-    final hasNoodles = cartNames.any((n) => n.contains('noodle') || n.contains('chow'));
+    final hasBiryani = cartNames.any((n) => n.contains('biryani'));
+    final hasRice = cartNames.any((n) => n.contains('rice') || n.contains('pulao'));
+    final hasNoodles = cartNames.any((n) => n.contains('noodle') || n.contains('chow mein') || n.contains('hakka') || n.contains('chow'));
+    final hasChinese = cartCategories.contains('Chinese') || cartNames.any((n) => n.contains('manchurian') || n.contains('chow') || n.contains('spring roll') || n.contains('fried rice') || (n.contains('sweet') && n.contains('sour')));
     final hasFries = cartNames.any((n) => n.contains('fries') || n.contains('loaded'));
+    final hasDesiFood = cartCategories.contains('Desi Food') || hasBiryani;
+    final hasFastFood = cartCategories.contains('Fast Food') || hasBurger || hasPizza;
     final hasDrink = cartCategories.contains('Beverages') || cartNames.any((n) => 
       n.contains('drink') || n.contains('cola') || n.contains('shake') || 
       n.contains('juice') || n.contains('lassi') || n.contains('chai') || n.contains('coffee'));
+    
+    if (kDebugMode) {
+      print('hasChinese: $hasChinese, hasBurger: $hasBurger, hasPizza: $hasPizza');
+      print('hasDesiFood: $hasDesiFood, hasFastFood: $hasFastFood, hasDrink: $hasDrink');
+      print('hasNoodles: $hasNoodles, hasFries: $hasFries');
+    }
     
     // Score items based on SMART complementary logic
     final scored = <FoodItem, double>{};
     for (final item in availableItems) {
       double score = 0;
       final itemName = item.name.toLowerCase();
+      final itemCategory = item.category;
+      
+      // Item type detection
       final isFries = itemName.contains('fries') || itemName.contains('loaded');
-      final isDrink = item.category == 'Beverages' || itemName.contains('drink') || 
-          itemName.contains('shake') || itemName.contains('juice') || itemName.contains('lassi');
-      final isSide = itemName.contains('spring') || itemName.contains('nugget') || 
-          itemName.contains('wings') || itemName.contains('roll');
+      final isDrink = itemCategory == 'Beverages';
+      final isColdDrink = isDrink && (itemName.contains('shake') || itemName.contains('juice') || itemName.contains('cold') || itemName.contains('lassi'));
+      final isHotDrink = isDrink && (itemName.contains('chai') || itemName.contains('coffee'));
+      final isSide = itemName.contains('spring roll') || itemName.contains('nugget') || itemName.contains('wings') || itemName.contains('samosa');
+      final isChinese = itemName.contains('manchurian') || itemName.contains('chow') || itemName.contains('spring') || itemName.contains('noodle') || itemName.contains('fried rice');
+      final isDesi = itemCategory == 'Desi Food' || itemName.contains('biryani') || itemName.contains('karahi') || itemName.contains('nihari');
       
-      // BURGER LOGIC: Suggest fries, cold drinks, sides
+      // ========== CHINESE FOOD LOGIC ==========
+      if (hasChinese || hasNoodles) {
+        // Chinese food pairs well with: spring rolls, fried rice, noodles, cold drinks
+        if (itemName.contains('spring') && !cartNames.any((n) => n.contains('spring'))) score += 15;
+        if ((itemName.contains('fried rice') || itemName.contains('rice')) && itemCategory == 'Chinese' && !cartNames.any((n) => n.contains('rice'))) score += 12;
+        if ((itemName.contains('noodle') || itemName.contains('chow') || itemName.contains('hakka')) && !hasNoodles) score += 10;
+        if (itemName.contains('sweet') && itemName.contains('sour')) score += 8;
+        // Suggest other Chinese items
+        if (itemCategory == 'Chinese' && !cartNames.any((n) => itemName.contains(n))) score += 6;
+        if (isColdDrink && !hasDrink) score += 5;
+        // Avoid suggesting more manchurian if already have it
+        if (itemName.contains('manchurian') && cartNames.any((n) => n.contains('manchurian'))) score -= 15;
+      }
+      
+      // ========== BURGER LOGIC ==========
       if (hasBurger) {
-        if (isFries && !hasFries) score += 10; // Fries go great with burgers
-        if (isDrink && !hasDrink) score += 8;  // Need a drink with burger
-        if (isSide) score += 5; // Sides complement burgers
+        if (isFries && !hasFries) score += 12;
+        if (isColdDrink && !hasDrink) score += 10;
+        if (itemName.contains('wings') || itemName.contains('nugget')) score += 6;
       }
       
-      // PIZZA LOGIC: Suggest drinks, garlic bread, wings
+      // ========== PIZZA LOGIC ==========
       if (hasPizza) {
-        if (isDrink && !hasDrink) score += 8;
-        if (isSide) score += 6;
-        if (isFries && !hasFries) score += 4;
+        if (isColdDrink && !hasDrink) score += 10;
+        if (itemName.contains('wings') || itemName.contains('garlic')) score += 8;
+        if (isFries && !hasFries) score += 6;
       }
       
-      // BIRYANI/DESI FOOD LOGIC: Suggest raita, lassi, salad
-      if (hasBiryani) {
-        if (itemName.contains('lassi') || itemName.contains('raita')) score += 10;
-        if (isDrink && !hasDrink) score += 6;
+      // ========== DESI FOOD LOGIC ==========
+      if (hasDesiFood || hasBiryani) {
+        // Desi food pairs with: lassi, raita, salad, naan
+        if (itemName.contains('lassi')) score += 12;
+        if (itemName.contains('raita') || itemName.contains('salad')) score += 10;
+        if (itemName.contains('naan') || itemName.contains('roti')) score += 8;
+        if (isHotDrink) score += 5; // Chai goes with desi food
       }
       
-      // NOODLES LOGIC: Suggest spring rolls, drinks
-      if (hasNoodles) {
-        if (itemName.contains('spring') || itemName.contains('roll')) score += 8;
-        if (isDrink && !hasDrink) score += 6;
-      }
+      // ========== GENERAL RULES ==========
+      // Always suggest a drink if none in cart
+      if (!hasDrink && isDrink) score += 4;
       
-      // General: Always suggest drinks if none in cart
-      if (!hasDrink && isDrink) score += 5;
+      // Fast food gets fries suggestion
+      if (hasFastFood && isFries && !hasFries) score += 8;
       
-      // General: Fries are always a good suggestion for fast food
-      if (cartCategories.contains('Fast Food') && isFries && !hasFries) score += 7;
+      // Rating bonus (small)
+      score += item.rating * 0.3;
       
-      // Rating bonus
-      score += item.rating / 2;
+      // Variety bonus - suggest different categories
+      if (!cartCategories.contains(itemCategory)) score += 2;
       
-      // Avoid suggesting same category if already have many
-      if (cartCategories.contains(item.category) && cartCategories.length == 1) {
-        score -= 2; // Encourage variety
-      }
+      // Penalize same exact type of food
+      if (cartNames.any((n) => itemName.contains(n) || n.contains(itemName))) score -= 5;
       
       scored[item] = score;
     }
@@ -306,11 +375,22 @@ Respond in this exact JSON format only:
     final sorted = scored.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
-    final suggestions = sorted.take(4).map((e) => e.key).toList();
+    // Only take items with positive scores
+    final suggestions = sorted.where((e) => e.value > 0).take(4).map((e) => e.key).toList();
+    
+    if (kDebugMode) {
+      print('Top scored items:');
+      for (var entry in sorted.take(6)) {
+        print('  ${entry.key.name}: ${entry.value}');
+      }
+      print('Final suggestions: ${suggestions.map((s) => s.name).toList()}');
+    }
     
     // Smart message based on what's in cart
     String message;
-    if (hasBurger && !hasFries && !hasDrink) {
+    if (hasChinese || hasNoodles) {
+      message = "🥢 Complete your Chinese meal with these!";
+    } else if (hasBurger && !hasFries && !hasDrink) {
       message = "🍟 Complete your burger meal with fries and a cold drink!";
     } else if (hasBurger && !hasFries) {
       message = "🍟 Your burger needs some crispy fries!";
@@ -318,7 +398,7 @@ Respond in this exact JSON format only:
       message = "🥤 Don't forget a refreshing drink with your burger!";
     } else if (hasPizza) {
       message = "🍕 Perfect sides to go with your pizza!";
-    } else if (hasBiryani) {
+    } else if (hasDesiFood || hasBiryani) {
       message = "🍚 Complete your desi meal with these!";
     } else if (!hasDrink) {
       message = "🥤 Add a drink to complete your order!";
@@ -333,16 +413,20 @@ Respond in this exact JSON format only:
     );
   }
 
-  /// Local fallback for history-based suggestions
+  /// Local fallback for history-based suggestions - SMART recommendations
   AISuggestionResult _getLocalHistorySuggestions(List<OrderModel> orderHistory, List<FoodItem> allItems) {
     final orderedItemIds = <String>{};
+    final orderedItemNames = <String>{};
     final categoryFrequency = <String, int>{};
+    final itemFrequency = <String, int>{}; // Track how often each item was ordered
     
     for (final order in orderHistory) {
       for (final cartItem in order.items) {
         orderedItemIds.add(cartItem.foodItem.id);
+        orderedItemNames.add(cartItem.foodItem.name.toLowerCase());
         final cat = cartItem.foodItem.category;
-        categoryFrequency[cat] = (categoryFrequency[cat] ?? 0) + 1;
+        categoryFrequency[cat] = (categoryFrequency[cat] ?? 0) + cartItem.quantity;
+        itemFrequency[cartItem.foodItem.id] = (itemFrequency[cartItem.foodItem.id] ?? 0) + cartItem.quantity;
       }
     }
     
@@ -356,18 +440,80 @@ Respond in this exact JSON format only:
       }
     });
     
-    // Suggest items from favorite category that haven't been ordered
-    final suggestions = allItems
-        .where((item) => !orderedItemIds.contains(item.id))
-        .where((item) => item.category == favoriteCategory || item.rating >= 4.0)
-        .take(4)
-        .toList();
+    // Detect user preferences from order history
+    final likesChinese = orderedItemNames.any((n) => n.contains('manchurian') || n.contains('noodle') || n.contains('chow') || n.contains('spring'));
+    final likesBurgers = orderedItemNames.any((n) => n.contains('burger') || n.contains('zinger'));
+    final likesDesi = orderedItemNames.any((n) => n.contains('biryani') || n.contains('karahi') || n.contains('nihari'));
+    final likesPizza = orderedItemNames.any((n) => n.contains('pizza'));
+    
+    // Score all items for personalized suggestions
+    final scored = <FoodItem, double>{};
+    for (final item in allItems) {
+      double score = 0;
+      final itemName = item.name.toLowerCase();
+      
+      // Boost items from favorite category that user HASN'T tried yet
+      if (item.category == favoriteCategory && !orderedItemIds.contains(item.id)) {
+        score += 15; // High priority - new items from favorite category
+      }
+      
+      // Suggest similar items to what user likes
+      if (likesChinese && (itemName.contains('manchurian') || itemName.contains('noodle') || itemName.contains('chow') || itemName.contains('spring') || itemName.contains('fried rice'))) {
+        if (!orderedItemIds.contains(item.id)) score += 12;
+      }
+      if (likesBurgers && (itemName.contains('burger') || itemName.contains('zinger') || itemName.contains('fries') || itemName.contains('wings'))) {
+        if (!orderedItemIds.contains(item.id)) score += 12;
+      }
+      if (likesDesi && (itemName.contains('biryani') || itemName.contains('karahi') || itemName.contains('nihari') || itemName.contains('haleem'))) {
+        if (!orderedItemIds.contains(item.id)) score += 12;
+      }
+      if (likesPizza && (itemName.contains('pizza') || itemName.contains('garlic'))) {
+        if (!orderedItemIds.contains(item.id)) score += 12;
+      }
+      
+      // Highly rated items user hasn't tried
+      if (!orderedItemIds.contains(item.id) && item.rating >= 4.5) {
+        score += 8;
+      }
+      
+      // Items user has ordered before and might want to reorder
+      if (orderedItemIds.contains(item.id)) {
+        final orderCount = itemFrequency[item.id] ?? 0;
+        if (orderCount >= 2) {
+          score += 5; // User orders this frequently - suggest reorder
+        }
+      }
+      
+      // Rating bonus
+      score += item.rating * 0.5;
+      
+      scored[item] = score;
+    }
+    
+    final sorted = scored.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    
+    final suggestions = sorted.where((e) => e.value > 0).take(4).map((e) => e.key).toList();
+    
+    // Generate personalized message
+    String message;
+    if (likesChinese) {
+      message = "🥢 Based on your love for Chinese food, try these!";
+    } else if (likesBurgers) {
+      message = "🍔 Since you enjoy burgers, you might like these!";
+    } else if (likesDesi) {
+      message = "🍛 Based on your desi food orders, try these!";
+    } else if (likesPizza) {
+      message = "🍕 Pizza lover? Check out these recommendations!";
+    } else if (favoriteCategory != null) {
+      message = "✨ Since you love $favoriteCategory, try these!";
+    } else {
+      message = "🌟 Recommended just for you!";
+    }
     
     return AISuggestionResult(
       suggestions: suggestions,
-      aiMessage: favoriteCategory != null 
-          ? "Since you love $favoriteCategory, try these!"
-          : "Recommended just for you!",
+      aiMessage: message,
       isAIPowered: false,
     );
   }
