@@ -1,4 +1,5 @@
 import 'cart_item.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Order Status Enum
 enum OrderStatus {
@@ -114,10 +115,42 @@ class OrderModel {
 
   // Create from Firestore document
   factory OrderModel.fromMap(Map<String, dynamic> map) {
+    DateTime _parseDate(dynamic value) {
+      if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      if (value is String) {
+        try {
+          return DateTime.parse(value);
+        } catch (_) {
+          return DateTime.fromMillisecondsSinceEpoch(0);
+        }
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    Map<String, double>? _parseLocation(dynamic value) {
+      if (value == null) return null;
+      if (value is Map) {
+        final lat = value['lat'];
+        final lng = value['lng'];
+        if (lat == null || lng == null) return null;
+        if (lat is num && lng is num) {
+          return {'lat': lat.toDouble(), 'lng': lng.toDouble()};
+        }
+      }
+      return null;
+    }
+
+    final rawItems = (map['items'] as List?) ?? const [];
+
     return OrderModel(
       id: map['id'] ?? '',
       userId: map['userId'] ?? '',
-      items: (map['items'] as List).map((item) => CartItem.fromMap(item)).toList(),
+      items: rawItems
+          .whereType<Map>()
+          .map((item) => CartItem.fromMap(item.cast<String, dynamic>()))
+          .toList(),
       subtotal: (map['subtotal'] ?? 0).toDouble(),
       deliveryFee: (map['deliveryFee'] ?? 0).toDouble(),
       discount: (map['discount'] ?? 0).toDouble(),
@@ -133,14 +166,12 @@ class OrderModel {
       deliveryAddress: map['deliveryAddress'],
       deliveryInstructions: map['deliveryInstructions'],
       deliveryPersonId: map['deliveryPersonId'],
-      deliveryLocation: map['deliveryLocation'] != null
-          ? Map<String, double>.from(map['deliveryLocation'])
-          : null,
+      deliveryLocation: _parseLocation(map['deliveryLocation']),
       paymentMethod: map['paymentMethod'] ?? 'Cash on Delivery',
-      createdAt: DateTime.parse(map['createdAt']),
-      confirmedAt: map['confirmedAt'] != null ? DateTime.parse(map['confirmedAt']) : null,
-      readyAt: map['readyAt'] != null ? DateTime.parse(map['readyAt']) : null,
-      deliveredAt: map['deliveredAt'] != null ? DateTime.parse(map['deliveredAt']) : null,
+      createdAt: _parseDate(map['createdAt']),
+      confirmedAt: map['confirmedAt'] != null ? _parseDate(map['confirmedAt']) : null,
+      readyAt: map['readyAt'] != null ? _parseDate(map['readyAt']) : null,
+      deliveredAt: map['deliveredAt'] != null ? _parseDate(map['deliveredAt']) : null,
       cancelReason: map['cancelReason'],
     );
   }

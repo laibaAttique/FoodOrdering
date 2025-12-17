@@ -21,6 +21,48 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     _loadOrders();
   }
 
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.red[300],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Could not load orders',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF666666),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF999999),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadOrders,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _loadOrders() async {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     await orderProvider.loadOrders();
@@ -46,6 +88,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         builder: (context, orderProvider, _) {
           if (orderProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          final error = orderProvider.lastError;
+          if (error != null && error.isNotEmpty) {
+            return _buildErrorState(error);
           }
 
           if (orderProvider.orders.isEmpty) {
@@ -205,11 +252,10 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () {
-                    // TODO: Navigate to order tracking
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Order tracking coming soon!'),
-                      ),
+                    Navigator.pushNamed(
+                      context,
+                      '/order-tracking',
+                      arguments: order.id,
                     );
                   },
                   style: OutlinedButton.styleFrom(
