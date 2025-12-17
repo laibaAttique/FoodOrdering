@@ -216,7 +216,8 @@ class FirestoreService {
   /// Create new order
   Future<String> createOrder(OrderModel order) async {
     try {
-      final docRef = await _ordersCollection.add(order.toMap());
+      final docRef = _ordersCollection.doc(order.id);
+      await docRef.set(order.toMap());
       if (kDebugMode) {
         print('Order created: ${docRef.id}');
       }
@@ -232,19 +233,21 @@ class FirestoreService {
   /// Get user orders
   Future<List<OrderModel>> getUserOrders(String userId) async {
     try {
-      final snapshot = await _ordersCollection
-          .where('userId', isEqualTo: userId)
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => OrderModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      final snapshot = await _ordersCollection.where('userId', isEqualTo: userId).get();
+
+      final orders = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return OrderModel.fromMap(data);
+      }).toList();
+
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return orders;
     } catch (e) {
       if (kDebugMode) {
         print('Error getting user orders: $e');
       }
-      return [];
+      throw 'Failed to load orders: $e';
     }
   }
 
@@ -260,17 +263,21 @@ class FirestoreService {
             OrderStatus.ready.toString(),
             OrderStatus.outForDelivery.toString(),
           ])
-          .orderBy('createdAt', descending: true)
           .get();
-      
-      return snapshot.docs
-          .map((doc) => OrderModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+
+      final orders = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return OrderModel.fromMap(data);
+      }).toList();
+
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return orders;
     } catch (e) {
       if (kDebugMode) {
         print('Error getting active orders: $e');
       }
-      return [];
+      throw 'Failed to load active orders: $e';
     }
   }
 
@@ -292,11 +299,37 @@ class FirestoreService {
     }
   }
 
+  Future<void> updateOrderDeliveryLocation(
+    String orderId, {
+    required double lat,
+    required double lng,
+  }) async {
+    try {
+      await _ordersCollection.doc(orderId).update({
+        'deliveryLocation': {
+          'lat': lat,
+          'lng': lng,
+        },
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      if (kDebugMode) {
+        print('Order location updated: $orderId -> ($lat, $lng)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating order location: $e');
+      }
+      throw 'Failed to update order location';
+    }
+  }
+
   /// Stream order updates
   Stream<OrderModel?> streamOrder(String orderId) {
     return _ordersCollection.doc(orderId).snapshots().map((doc) {
       if (doc.exists) {
-        return OrderModel.fromMap(doc.data() as Map<String, dynamic>);
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return OrderModel.fromMap(data);
       }
       return null;
     });

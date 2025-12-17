@@ -60,6 +60,73 @@ class _HomeScreenState extends State<HomeScreen> {
         'Guest';
 
     return Scaffold(
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'BitesBuzz',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF666666),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/profile');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long),
+                title: const Text('My Orders'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/order-history');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shopping_cart),
+                title: const Text('Cart'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/cart');
+                },
+              ),
+              const Spacer(),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _handleLogout(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
       floatingActionButton: Consumer<CartProvider>(
         builder: (context, cart, child) {
           if (cart.itemCount == 0) return const SizedBox();
@@ -139,6 +206,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   ],
               ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.pushNamed(context, '/profile');
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),

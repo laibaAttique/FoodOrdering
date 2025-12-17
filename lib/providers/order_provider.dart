@@ -10,16 +10,23 @@ class OrderProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
   final Uuid _uuid = const Uuid();
 
+  static const Map<String, double> _defaultTrackingLocation = {
+    'lat': 31.5204,
+    'lng': 74.3587,
+  };
+
   List<OrderModel> _orders = [];
   List<OrderModel> _activeOrders = [];
   bool _isLoading = false;
   String? _userId;
+  String? _lastError;
 
   // Getters
   List<OrderModel> get orders => _orders;
   List<OrderModel> get activeOrders => _activeOrders;
   bool get isLoading => _isLoading;
   bool get hasActiveOrders => _activeOrders.isNotEmpty;
+  String? get lastError => _lastError;
 
   /// Set user ID and load orders
   Future<void> setUserId(String? userId) async {
@@ -39,6 +46,7 @@ class OrderProvider with ChangeNotifier {
 
     try {
       _isLoading = true;
+      _lastError = null;
       notifyListeners();
 
       _orders = await _firestoreService.getUserOrders(_userId!);
@@ -50,6 +58,7 @@ class OrderProvider with ChangeNotifier {
       if (kDebugMode) {
         print('Error loading orders: $e');
       }
+      _lastError = e.toString();
       _isLoading = false;
       notifyListeners();
     }
@@ -86,6 +95,7 @@ class OrderProvider with ChangeNotifier {
         status: OrderStatus.placed,
         deliveryAddress: deliveryAddress,
         deliveryInstructions: deliveryInstructions,
+        deliveryLocation: orderType == OrderType.delivery ? _defaultTrackingLocation : null,
         paymentMethod: 'Cash on Delivery',
         createdAt: DateTime.now(),
       );
@@ -121,6 +131,14 @@ class OrderProvider with ChangeNotifier {
   /// Stream order updates
   Stream<OrderModel?> streamOrder(String orderId) {
     return _firestoreService.streamOrder(orderId);
+  }
+
+  Future<void> updateDeliveryLocation(
+    String orderId, {
+    required double lat,
+    required double lng,
+  }) async {
+    await _firestoreService.updateOrderDeliveryLocation(orderId, lat: lat, lng: lng);
   }
 
   /// Refresh orders

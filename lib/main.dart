@@ -14,6 +14,7 @@ import 'screens/cart_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/order_history_screen.dart';
+import 'screens/order_tracking_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/item_details_screen.dart';
 
@@ -211,6 +212,10 @@ class BitesBuzzApp extends StatelessWidget {
               '/menu': (context) => const MenuScreen(),
               '/checkout': (context) => const CheckoutScreen(),
               '/order-history': (context) => const OrderHistoryScreen(),
+              '/order-tracking': (context) {
+                final args = ModalRoute.of(context)?.settings.arguments as String?;
+                return OrderTrackingScreen(orderId: args ?? '');
+              },
               '/profile': (context) => const ProfileScreen(),
               // TODO: Add routes as screens are implemented
               // '/item-details': (context) => const ItemDetailsScreen(),
